@@ -1,0 +1,62 @@
+<!-- src/main/resources/static/chat.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat</title>
+</head>
+<body>
+<h2>Chat Room</h2>
+<div id="chat-box" style="height: 300px; overflow-y: scroll; border: 1px solid #ccc;"></div>
+<input type="text" id="message" placeholder="Type your message">
+<button onclick="sendMessage()">Send</button>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get("roomId");
+    const username = urlParams.get("username");
+
+    let stompClient = null;
+
+    function connect() {
+        const socket = new SockJS('/connect');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, () => {
+            stompClient.subscribe(`/topic/room/${roomId}`, (message) => {
+                const msg = JSON.parse(message.body);
+                showMessage(`${msg.sender}: ${msg.message}`);
+            });
+
+            // send login message (optional)
+            stompClient.send("/app/chat.login", {}, JSON.stringify({
+                sender: username,
+                chatType: "JOIN"
+            }));
+        });
+    }
+
+    function sendMessage() {
+        const msg = document.getElementById("message").value;
+        if (!msg) return;
+
+        stompClient.send(`/app/sendMessage/${roomId}`, {}, JSON.stringify({
+            sender: username,
+            content: msg,
+            roomId: roomId
+        }));
+
+        document.getElementById("message").value = "";
+    }
+
+    function showMessage(message) {
+        const chatBox = document.getElementById("chat-box");
+        chatBox.innerHTML += `<div>${message}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    connect();
+</script>
+</body>
+</html>
